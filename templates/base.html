@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hackers vs Defenders — Lobby</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .center { max-width: 900px; margin: 32px auto; text-align: center; }
+    .role-btn { min-width: 160px; padding: 12px 18px; font-size: 16px; border-radius: 10px; margin: 8px; }
+    .locked { opacity: 0.45; pointer-events: none; }
+    .disabled { opacity: 0.55; pointer-events: none; }
+    .status { margin-top: 12px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <h1>Hackers vs Defenders</h1>
+    <p id="players">Players online: 0 / 2</p>
+
+    <div id="roleArea">
+      <button id="btnHacker" class="role-btn" onclick="chooseRole('hacker')" disabled>Choose Hacker</button>
+      <button id="btnDefender" class="role-btn" onclick="chooseRole('defender')" disabled>Choose Defender</button>
+    </div>
+
+    <div class="status" id="statusMsg"></div>
+    <div id="lobbyLog" style="margin-top:18px;"></div>
+  </div>
+
+  <script>
+    const socket = io();
+
+    // UI elements
+    const playersEl = document.getElementById('players');
+    const btnH = document.getElementById('btnHacker');
+    const btnD = document.getElementById('btnDefender');
+    const statusEl = document.getElementById('statusMsg');
+    const logEl = document.getElementById('lobbyLog');
+
+    function log(msg) {
+      logEl.innerHTML += "<div>" + msg + "</div>";
+    }
+
+    // Update players count UI
+    socket.on('player_count', (data) => {
+      const count = data.count || 0;
+      const max = data.max || 2;
+      playersEl.textContent = `Players online: ${count} / ${max}`;
+      // enable role buttons when there are exactly max players
+      if (count >= max) {
+        enableButtonsIfAvailable();
+        statusEl.textContent = "Match ready — pick a role.";
+      } else {
+        // disable role choice until enough players
+        btnH.disabled = true;
+        btnD.disabled = true;
+        btnH.classList.add('disabled');
+        btnD.classList.add('disabled');
+        statusEl.textContent = "Waiting for players to join...";
+      }
+    });
+
+    // roles update: { hacker: true/false, defender: true/false }
+    socket.on('roles_update', (owners) => {
+      // owners.hacker == true means someone has locked it
+      if (owners.hacker) {
+        btnH.classList.add('locked');
+        btnH.disabled = true;
+      } else {
+        btnH.classList.remove('locked');
+        btnH.disabled = false;
+      }
+      if (owners.defender) {
+        btnD.classList.add('locked');
+        btnD.disabled = true;
+      } else {
+        btnD.classList.remove('locked');
+        btnD.disabled = false;
+      }
+
+      // If not enough players, keep them disabled
+      // (player_count handler will re-enable when ready)
+      enableButtonsIfAvailable();
+    });
+
+    function enableButtonsIfAvailable() {
+      const text = playersEl.textContent || "";
+      const match = text.match(/Players online: (\d+) \/ (\d+)/);
+      const num = match ? parseInt(match[1], 10) : 0;
+      const max = match ? parseInt(match[2], 10) : 2;
+      if (num >= max) {
+        // enable whichever button is not locked
+        if (!btnH.classList.contains('locked')) {
+          btnH.disabled = false;
+          btnH.classList.remove('disabled');
+        } else {
+          btnH.disabled = true;
+        }
+        if (!btnD.classList.contains('locked')) {
+          btnD.disabled = false;
+          btnD.classList.remove('disabled');
+        } else {
+          btnD.disabled = true;
+        }
+      } else {
+        btnH.disabled = true;
+        btnD.disabled = true;
+        btnH.classList.add('disabled');
+        btnD.classList.add('disabled');
+      }
+    }
+
+    // Choose role: first send socket request to lock, server responds
+    function chooseRole(role) {
+      socket.emit('choose_role', {role});
+    }
+
+    socket.on('choose_role_failed', (d) => {
+      statusEl.textContent = "Role selection failed: " + (d.error || "unknown");
+      log("Role select failed: " + JSON.stringify(d));
+    });
+
+    socket.on('choose_role_success', (d) => {
+      statusEl.textContent = "Role locked: " + d.role + ". Saving role on server...";
+      // Now call /set-role to persist in Flask session and then redirect
+      fetch('/set-role', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({role: d.role})
+      }).then(r => r.json()).then(j => {
+        if (j.ok) {
+          statusEl.textContent = "Role saved. Redirecting...";
+          if (j.role === 'hacker') window.location.href = '/hacker';
+          else if (j.role === 'defender') window.location.href = '/defender';
+        } else {
+          statusEl.textContent = "Failed to save role: " + (j.error || '');
+        }
+      }).catch(err => {
+        statusEl.textContent = "Network error saving role";
+      });
+    });
+
+    // If both roles assigned, server will emit roles_ready
+    socket.on('roles_ready', (d) => {
+      log("Both roles assigned — game ready to start.");
+      statusEl.textContent = "Both roles chosen — starting match...";
+      // We let the client pages handle redirect after set_role earlier
+    });
+
+    // keep a small client-side sanity: refresh roles UI on connect
+    socket.on('connect', () => {
+      socket.emit('request_roles'); // optional if you add a handler; else server will send updates on connect
+    });
+
+  </script>
+</body>
+</html>

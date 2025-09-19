@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Defender — Match</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="defender">
+  <div style="max-width:900px;margin:32px auto;">
+    <h1>Defender Console</h1>
+    <p>Welcome — you are the <strong>Defender</strong>. Wait for the hacker or begin when ready.</p>
+
+    <div id="gameStatus">Waiting for play to begin...</div>
+
+    <div style="margin-top:12px;">
+      <a href="/"><button>Leave Match</button></a>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+<script>
+  const socket = io();
+  function log(m){document.getElementById('log').innerHTML += "<div>"+m+"</div>";}
+
+  socket.on('connect', () => log('Connected to server.'));
+  socket.on('roles_ready', () => {
+    document.getElementById('gameStatus').textContent = "Both players ready — start game logic now.";
+    log('Both roles chosen. Game can start.');
+    // insert logic to start defender flow
+  });
+
+  socket.on('roles_update', (owners) => {
+    log('Roles update: ' + JSON.stringify(owners));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+/* style.css - small shared theme */
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  margin: 0;
+  background: #0b0f14;
+  color: #e7f0ff;
+}
+
+h1 {
+  color: #7dd3fc;
+  margin-bottom: 6px;
+}
+
+button {
+  all: unset;
+  display: inline-block;
+  cursor: pointer;
+  background: #1a2533;
+  color: #e7f0ff;
+  border: 1px solid #223044;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+button:hover { background: #223044; }
+
+.role-btn {
+  min-width: 160px;
+  padding: 12px 18px;
+  font-size: 16px;
+  border-radius: 10px;
+}
+
+.locked {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.center { text-align: center; margin-top: 40px; }
